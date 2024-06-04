@@ -1,0 +1,18 @@
+indentation: 4
+column-limit: 80
+function-arrows: trailing
+comma-style: leading
+import-export-style: diff-friendly
+indent-wheres: false
+record-brace-space: false
+newlines-between-decls: 1
+haddock-style: multi-line
+haddock-style-module: null
+let-style: mixed
+in-style: right-align
+single-constraint-parens: always
+# single-deriving-parens: always # Fourmolu 0.15 option
+unicode: always
+respectful: false
+fixities: []
+reexports: []

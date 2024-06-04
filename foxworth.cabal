@@ -1,0 +1,56 @@
+cabal-version:      3.0
+
+name:               foxworth
+version:            0.0.1
+synopsis:           A System Fω evaluator
+
+license:            MIT
+author:             Olive Welch
+copyright:          (c) 2024 Olive Welch
+homepage:           https://github.com/OliveIsAWord/foxworth
+
+license-file:       LICENSE
+extra-doc-files:    README.md
+tested-with:        GHC == 9.6.5
+
+executable foxworth
+    hs-source-dirs:   app
+    main-is:          Main.hs
+
+    other-modules:
+        , Log
+        , Options
+        , Utils
+    
+    -- Libraries are locked with 'cabal freeze' to the version provided by nix.
+    build-depends:
+        , ansi-terminal >= 1.0.2 && < 1.1
+        , base >= 4.18.2 && < 4.19
+        , co-log >= 0.6.1 && < 0.7
+        , optparse-applicative >= 0.18.1 && < 0.19
+        , text >= 2.0.2 && < 2.1
+        , time >= 1.12.2 && < 1.13
+    default-extensions:
+        -- From the GHC2024 extensions
+        LambdaCase
+        MonoLocalBinds
+
+        -- Improving record usage
+        DisambiguateRecordFields
+        DuplicateRecordFields
+        OverloadedRecordDot
+        RecordWildCards
+        NoFieldSelectors
+
+        -- Improve Text usage
+        OverloadedStrings
+
+        -- Because it looks nice
+        UnicodeSyntax
+
+        -- Good extension, but currently just affects error messages
+        NoStarIsType
+    ghc-options:
+        -Wall
+        -Wno-name-shadowing
+    default-language: GHC2021

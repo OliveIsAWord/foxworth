@@ -1,0 +1,23 @@
+- arguments: [-j]
+
+# Enable extra lint groups
+- group: {name: future, enabled: true}
+- group: {name: generalise-for-conciseness, enabled: true}
+- group: {name: dollar, enabled: true}
+
+# Enable these extra lint groups just for fun
+- group: {name: extra, enabled: true}
+- group: {name: use-lens, enabled: true}
+- group: {name: use-th-quotes, enabled: true}
+- group: {name: teaching, enabled: true}
+
+# Require an export list for all modules other than Main
+- warn: {name: Use module export list}
+- ignore: {name: Use module export list, within: [Main]}
+
+- warn: {name: Redundant bracket due to operator fixities}
+- warn: {lhs: (++), rhs: (<>)}
+
+- modules:
+  - {name: '**', importStyle: 'explicitOrQualified', qualifiedStyle: 'post'}
+  - {name: '**.*Prelude', importStyle: 'unrestricted'}
