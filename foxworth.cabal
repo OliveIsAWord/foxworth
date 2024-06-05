@@ -28,7 +28,7 @@ executable foxworth
         , base >= 4.18.2 && < 4.19
         , co-log >= 0.6.1 && < 0.7
         , optparse-applicative >= 0.18.1 && < 0.19
-        , text >= 2.0.2 && < 2.1
+        , text >= 2.1 && < 2.2
         , time >= 1.12.2 && < 1.13
     default-extensions:
         -- From the GHC2024 extensions

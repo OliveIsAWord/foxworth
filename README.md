@@ -53,6 +53,8 @@ cabal run foxworth
 
 - [ ] Language extensions
 
+- [ ] Haskell interop?
+
 ## "Make It Pretty" Development
 
 This project is partly an experiment into a new (for me) development style. This
