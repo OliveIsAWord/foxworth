@@ -21,15 +21,27 @@ executable foxworth
         , Log
         , Options
         , Utils
-    
+        , Lex
+        , Syntax
     -- Libraries are locked with 'cabal freeze' to the version provided by nix.
     build-depends:
-        , ansi-terminal >= 1.0.2 && < 1.1
-        , base >= 4.18.2 && < 4.19
-        , co-log >= 0.6.1 && < 0.7
-        , optparse-applicative >= 0.18.1 && < 0.19
-        , text >= 2.1 && < 2.2
-        , time >= 1.12.2 && < 1.13
+        , ansi-terminal
+        , array
+        , base
+        , co-log-core
+        , containers
+        , filepath
+        , free
+        , megaparsec
+        , mtl
+        , optparse-applicative
+        , text >= 2.1.1
+        , time
+        , transformers
+        , unliftio-core
+    build-tool-depends:
+        -- , alex:alex >= 3.5.1 && < 3.6
+        -- , happy:happy >= 1.20.1.1 && < 1.21
     default-extensions:
         -- From the GHC2024 extensions
         LambdaCase

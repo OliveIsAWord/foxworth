@@ -53,6 +53,8 @@ cabal run foxworth
 
 - [ ] Language extensions
 
+- [ ] Language restrictions
+
 - [ ] Haskell interop?
 
 ## "Make It Pretty" Development
@@ -93,6 +95,8 @@ positive, such as:
    'printf' style debugging.
 
 5. Writing documentation such as this README file!
+
+6. Considering 
 
 Though I've grown less and less enthusiastic about the current stage (a familiar
 feeling in all my projects), I remain excited about the next!

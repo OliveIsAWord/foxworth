@@ -11,15 +11,12 @@ module Log (
     logError,
 ) where
 
-import Colog (
-    LogAction (..),
-    LoggerT,
-    Msg (..),
-    cfilter,
-    log,
-    usingLoggerT,
- )
-import Colog qualified
+import Colog.Core.Action (LogAction (..), cfilter, hoistLogAction)
+import Colog.Core.Class (HasLog, getLogAction)
+import Control.Monad.IO.Class (MonadIO)
+import Control.Monad.IO.Unlift (MonadUnliftIO)
+import Control.Monad.Reader (MonadReader, MonadTrans, asks, lift, runReaderT)
+import Control.Monad.Trans.Reader (ReaderT)
 import Data.Text qualified as T
 import Data.Text.IO qualified as T
 import Data.Time.LocalTime (
@@ -27,7 +24,14 @@ import Data.Time.LocalTime (
     ZonedTime (..),
     getZonedTime,
  )
-import GHC.Stack (SrcLoc (..), getCallStack)
+import GHC.Stack (
+    CallStack,
+    HasCallStack,
+    SrcLoc (..),
+    callStack,
+    getCallStack,
+    withFrozenCallStack,
+ )
 import System.Console.ANSI qualified as Ansi
 import System.IO (stderr)
 import Text.Read qualified as TRead
@@ -35,14 +39,16 @@ import Utils (getAll, readPrecImpl)
 import Prelude hiding (log)
 
 {- Note [Logging Framework]
-~~~~~~~~~~~~~~~~~
-We use the co-log library for easy monadic logging. This probably has some poor effects for the code, such as forcing much code with monads, as well as artificially serializing much computation by the nature of @do@ notation.
-
-It's unclear how much value is gained from co-log over co-log-core; we may want to switch at some point.
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+We use the co-log library for easy monadic logging. This probably has some poor effects for the code, such as cluttering code with monads, and artificially serializing much computation by the nature of monads and monadic @do@.
 -}
 
 -- | Text to be logged with an associated 'Verbosity' and source location.
-type Message = Msg Verbosity
+data Message = Msg
+    { msgSeverity ∷ Verbosity
+    , msgStack ∷ CallStack
+    , msgText ∷ T.Text
+    }
 
 {- | The level of importance for logs. The user can specify a threshold for the minimum level that ought to be printed.
 
@@ -93,8 +99,44 @@ logInfo = log Info
 logWarning = log Warning
 logError = log Error
 
+-- | Logs the message with given severity @sev@.
+log ∷ (WithLog m) ⇒ Verbosity → T.Text → m ()
+log msgSeverity msgText =
+    withFrozenCallStack (logMsg Msg{msgStack = callStack, ..})
+
+logMsg ∷ (WithLog m) ⇒ Message → m ()
+logMsg msg = do
+    LogAction log ← asks getLogAction
+    log msg
+
+newtype LoggerT msg m a = LoggerT
+    { runLoggerT ∷ ReaderT (LogAction (LoggerT msg m) msg) m a
+    }
+    deriving
+        ( Functor
+        , Applicative
+        , Monad
+        , MonadIO
+        , MonadFail
+        , MonadReader (LogAction (LoggerT msg m) msg)
+        , MonadUnliftIO
+        )
+
+usingLoggerT ∷ (Monad m) ⇒ LogAction m msg → LoggerT msg m a → m a
+usingLoggerT action lt = flip runReaderT (liftLogAction action) $ lt.runLoggerT
+
+liftLogAction ∷
+    (Monad m, MonadTrans t) ⇒ LogAction m msg → LogAction (t m) msg
+liftLogAction = hoistLogAction lift
+
+instance MonadTrans (LoggerT msg) where
+    lift ∷ (Monad m) ⇒ m a → LoggerT msg m a
+    lift = LoggerT . lift
+
 -- | Convenient type synonym for use by any function that logs.
-type WithLog m = Colog.WithLog (LogAction m Message) Message m
+type WithLog m = WithLog' (LogAction m Message) Message m
+
+type WithLog' env msg m = (MonadReader env m, HasLog env msg m, HasCallStack)
 
 -- | A map of log output settings.
 data OutputOptions = OutputOptions

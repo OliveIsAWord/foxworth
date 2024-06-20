@@ -7,6 +7,7 @@ import Data.Bifunctor (first)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO.Utf8 qualified as T
+import Lex (tokenize)
 import Log (
     OutputOptions (..),
     Verbosity (..),
@@ -20,6 +21,7 @@ import Options (
  )
 import System.Console.ANSI qualified as Ansi
 import System.Exit (exitFailure)
+import System.FilePath (takeFileName)
 import System.IO (stderr)
 import System.IO.Error qualified as E
 
@@ -55,4 +57,9 @@ runInterpreter InterpreterOptions{..} = do
         getSource inputFile >>= \case
             Right s → pure s
             Left e → logError e >> liftIO exitFailure
-    liftIO . T.putStr $ source
+    let fileName = takeFileName inputFile
+    case tokenize fileName source of
+            Left e → do
+                logError e
+                liftIO exitFailure
+            Right x → liftIO $ print x
