@@ -19,6 +19,7 @@ import Options (
     InterpreterOptions (..),
     parseArgs,
  )
+import Parse (parse)
 import System.Console.ANSI qualified as Ansi
 import System.Exit (exitFailure)
 import System.FilePath (takeFileName)
@@ -58,8 +59,10 @@ runInterpreter InterpreterOptions{..} = do
             Right s → pure s
             Left e → logError e >> liftIO exitFailure
     let fileName = takeFileName inputFile
-    case tokenize fileName source of
-            Left e → do
-                logError e
-                liftIO exitFailure
-            Right x → liftIO $ print x
+    tokens ← case tokenize fileName source of
+        Left e → do
+            logError e
+            liftIO exitFailure
+        Right x → pure x
+    let foxProgram = parse fileName tokens
+    liftIO . print $ foxProgram

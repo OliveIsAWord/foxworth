@@ -1,4 +1,4 @@
-- arguments: [-j]
+- arguments: [-j, -XOverloadedRecordDot, -XNoStarIsType]
 
 # Enable extra lint groups
 - group: {name: future, enabled: true}

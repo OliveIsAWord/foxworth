@@ -1,1 +1,3 @@
-id = /\A: *. \x: A. x
+let forallid = /\A: *. \x: A. x
+
+let Id = let a: Box = * in forall a: Ty. x -> x

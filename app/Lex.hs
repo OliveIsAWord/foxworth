@@ -13,7 +13,7 @@ We use Megaparsec, a standard parser combinator library, for our lexing. Some co
 -}
 
 import Control.Applicative ((<|>))
-import Control.Monad (void)
+import Control.Monad (void, when)
 import Data.Set qualified as S
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -36,8 +36,10 @@ data Token
       Arrow
     | -- | @=@
       Equals
-    | -- | @*@
+    | -- | @Type@ or @*@
       Star
+    | -- | @Box@ or @□@
+      Box
     | -- | @.@
       Dot
     | -- | @:@
@@ -127,9 +129,11 @@ pBlockComment = do
         pCommentBody = do
             o ← M.getOffset
             c ← M.anySingle
-            if c == '#'
-                then withError o (ReservedSymbol "#-}") . M.notFollowedBy . void $ M.string "-}"
-                else pure ()
+            Control.Monad.when (c == '#')
+                . withError o (ReservedSymbol "#-}")
+                . M.notFollowedBy
+                . void
+                $ M.string "-}"
     withError o UnmatchedCommentOpen restOfBlock
 
 -- | Consumes input and errors on an (unmatched) closing comment block
@@ -145,14 +149,12 @@ pToken ∷ Parser Token
 pToken =
     M.choice
         [ pCommentClose
-        , Let <$ M.string "let"
-        , In <$ M.string "in"
-        , Forall <$ M.string "forall"
         , Forall <$ M.string "∀"
         , Arrow <$ M.string "->"
         , Arrow <$ M.string "→"
         , Equals <$ M.string "="
         , Star <$ M.string "*"
+        , Box <$ M.string "□"
         , Dot <$ M.string "."
         , Colon <$ M.string ":"
         , ParenOpen <$ M.string "("
@@ -163,21 +165,28 @@ pToken =
         , LambdaUpper <$ M.string "Λ"
         , LambdaLower <$ M.string "\\"
         , LambdaLower <$ M.string "λ"
-        , Identifier <$> pIdent
+        , pWord
         ]
 
--- | Parse an identifier
-pIdent ∷ Parser Text
-pIdent = do
+-- | Parse a keyword or identifier
+pWord ∷ Parser Token
+pWord = do
     o ← M.getOffset
     x ← M.letterChar <|> M.char '_'
     xs ← M.many $ M.alphaNumChar <|> M.char '_' <|> M.char '\''
     let ident = T.pack $ x : xs
-    if ident `elem` ["match", "data", "type", "Type"]
-        then do
-            let rawError = M.customFailure $ ReservedSymbol ident
-            M.region (M.setErrorOffset o) rawError
-        else pure ident
+    let rawError = M.customFailure $ ReservedSymbol ident
+    let e = M.region (M.setErrorOffset o) rawError
+    case ident of
+        "let" → pure Let
+        "in" → pure In
+        "forall" → pure Forall
+        "Type" → pure Star
+        "Box" → pure Box
+        "match" → e
+        "data" → e
+        "type" → e
+        _ → pure . Identifier $ T.copy ident
 
 -- | Bundle the output of a parser with its span.
 pSpan ∷ Parser a → Parser (Spanned a)

@@ -123,7 +123,7 @@ newtype LoggerT msg m a = LoggerT
         )
 
 usingLoggerT ∷ (Monad m) ⇒ LogAction m msg → LoggerT msg m a → m a
-usingLoggerT action lt = flip runReaderT (liftLogAction action) $ lt.runLoggerT
+usingLoggerT action lt = runReaderT lt.runLoggerT $ liftLogAction action
 
 liftLogAction ∷
     (Monad m, MonadTrans t) ⇒ LogAction m msg → LogAction (t m) msg

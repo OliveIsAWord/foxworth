@@ -23,6 +23,7 @@ executable foxworth
         , Utils
         , Lex
         , Syntax
+        , Parse
     -- Libraries are locked with 'cabal freeze' to the version provided by nix.
     build-depends:
         , ansi-terminal
@@ -30,11 +31,13 @@ executable foxworth
         , base
         , co-log-core
         , containers
+        , deriving-compat
         , filepath
         , free
         , megaparsec
         , mtl
         , optparse-applicative
+        , ordered-containers
         , text >= 2.1.1
         , time
         , transformers
@@ -46,6 +49,10 @@ executable foxworth
         -- From the GHC2024 extensions
         LambdaCase
         MonoLocalBinds
+        DerivingStrategies
+
+        -- Deriving Show1
+        TemplateHaskell
 
         -- Improving record usage
         DisambiguateRecordFields

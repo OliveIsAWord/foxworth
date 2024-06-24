@@ -1,5 +1,5 @@
 --+ let match = foo in bar
-{-#
+
 let id: forall a: *. a -> a = /\A: *. \x: A. let c_O0l {-beans!-} = x in (cO0l) X' X' [T]
 
 let id: ∀a: *. a → a = ΛA: *. λx: A. let c_O0l = x in (cO0l) X' X' [T]

@@ -1,5 +1,8 @@
 -- | source code.
-module Syntax (Loc (..), Span (..), Spanned (..)) where
+module Syntax (Loc (..), Span (..), Spanned (..), sad) where
+
+import Control.Comonad.Cofree (Cofree (..))
+import Control.Exception (assert)
 
 {- Note [Source location representation]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -35,6 +38,12 @@ data Span = Span
     }
     deriving (Eq, Ord)
 
+instance Semigroup Span where
+    a <> b =
+        assert
+            (a.start <= a.end && a.end <= b.start && b.start <= b.end)
+            Span{start = a.start, end = b.end}
+
 instance Show Span where
     show span = show span.start <> "-" <> show span.end
 
@@ -42,4 +51,8 @@ infixr 5 :>
 
 -- | A convenient shorthand for a value associated with a span.
 data Spanned a = Span :> a
-    deriving (Eq, Ord, Show)
+    deriving (Eq, Ord, Show, Functor)
+
+-- | Converts from the 'Spanned' constructor ':>' to the 'Cofree' constructor ':<'.
+sad ∷ Spanned (f (Cofree f Span)) → Cofree f Span
+sad (span :> v) = span :< v
