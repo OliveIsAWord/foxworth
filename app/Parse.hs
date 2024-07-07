@@ -1,7 +1,16 @@
 -- | Transforming a list of tokens into a parse tree.
-module Parse (parse, FoxExpr, FoxExprF (..), prettyFoxProgram) where
+module Parse (
+    parse,
+    FoxExpr,
+    FoxExprF (..),
+    prettyProgram,
+    prettyFoxProgram,
+    Program (..),
+    FoxProgram,
+) where
 
 import Control.Comonad.Cofree (Cofree (..))
+import Data.Bifunctor (second)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Map.Ordered.Strict (OMap)
 import Data.Map.Ordered.Strict qualified as Om
@@ -35,16 +44,30 @@ type FoxExpr = Cofree FoxExprF Span
 
 type FoxExprUnspanned = FoxExprF FoxExpr
 
-newtype FoxProgram = FoxProgram
-    { definitions ∷ OMap Text (Span, FoxExpr)
+newtype Program ident expr = Program
+    { definitions ∷ OMap ident (Span, expr)
     -- ^ A list of global named constants, each with a span of the name
     }
     deriving (Show)
 
+instance Functor (Program ident) where
+    fmap f p = Program{definitions = fmap (second f) p.definitions}
+
+prettyProgram ∷
+    (Foldable f, Functor f, Show (f ())) ⇒
+    (ident → Text) →
+    Program ident (Cofree f a) →
+    Text
+prettyProgram toText p =
+    T.unlines
+        . map
+            (\(name, (_, body)) → toText name <> " =\n" <> prettyShow 1 body)
+        $ Om.assocs p.definitions
+
+type FoxProgram = Program Text FoxExpr
+
 prettyFoxProgram ∷ FoxProgram → Text
-prettyFoxProgram p =
-    T.unlines . map (\(name, (_, body)) → name <> " =\n" <> prettyShow 1 body) $
-        Om.assocs p.definitions
+prettyFoxProgram = prettyProgram id
 
 -- | Parse the given token list into a syntax tree, returning index of erroneous token on failure.
 parse ∷ FilePath → [Spanned Token] → Either Text FoxProgram
@@ -58,7 +81,7 @@ type Parser = M.Parsec Void [Spanned Token]
 pProgram ∷ Parser FoxProgram
 pProgram = do
     definitions ← Om.fromList <$> M.many pDefinition <* M.eof
-    pure $ FoxProgram{..}
+    pure Program{..}
 
 pDefinition ∷ Parser (Text, (Span, FoxExpr))
 pDefinition = do

@@ -3,6 +3,7 @@
 # Infix operators and constructors not in base
 - fixity: "infixr 5 :<" # Control.Comonad.Cofree
 - fixity: "infixr 5 :>" # Syntax
+- fixity: "infixl 8 :$" # Term
 
 # Enable extra lint groups
 - group: {name: future, enabled: true}
@@ -21,6 +22,7 @@
 
 - warn: {name: Redundant bracket due to operator fixities}
 - warn: {lhs: (++), rhs: (<>)}
+- warn: {lhs: (\(a :< b) -> b), rhs: (Control.Comonad.Cofree.unwrap)}
 
 - modules:
   - {name: '**', importStyle: 'explicitOrQualified', qualifiedStyle: 'post'}

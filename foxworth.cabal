@@ -24,6 +24,7 @@ executable foxworth
         , Lex
         , Syntax
         , Parse
+        , Desugar
     -- Libraries are locked with 'cabal freeze' to the version provided by nix.
     build-depends:
         , ansi-terminal

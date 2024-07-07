@@ -7,6 +7,7 @@ import Data.Bifunctor (first)
 import Data.Text (Text)
 import Data.Text qualified as T
 import Data.Text.IO.Utf8 qualified as T
+import Desugar (desugar)
 import Lex (tokenize)
 import Log (
     OutputOptions (..),
@@ -19,7 +20,7 @@ import Options (
     InterpreterOptions (..),
     parseArgs,
  )
-import Parse (parse, prettyFoxProgram)
+import Parse (parse, prettyProgram)
 import System.Console.ANSI qualified as Ansi
 import System.Exit (exitFailure)
 import System.FilePath (takeFileName)
@@ -71,5 +72,6 @@ runInterpreter InterpreterOptions{..} = do
             logError i
             liftIO exitFailure
         Right x → pure x
-
-    liftIO . T.putStrLn . prettyFoxProgram $ foxProgram
+    -- liftIO . T.putStrLn . prettyFoxProgram $ foxProgram
+    let coreProgram = fmap desugar foxProgram
+    liftIO . T.putStrLn $ prettyProgram id coreProgram
