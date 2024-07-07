@@ -65,7 +65,6 @@ runInterpreter InterpreterOptions{..} = do
             logError e
             liftIO exitFailure
         Right x → pure x
-    liftIO . print $ take 5 tokens
     foxProgram ← case parse fileName tokens of
         Left i → do
             -- logError . ("Parse error at " <>) . T.pack . show $ tokens !! i

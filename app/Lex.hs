@@ -83,14 +83,15 @@ showPretty (s :> t) = case t of
     len = s.end.offset - s.start.offset
 
 instance M.VisualStream [Spanned Token] where
-    showTokens _ = insertSpaces
+    showTokens _ xs = if line == "" then "<empty line>" else line
       where
-        insertSpaces (x :| []) = showPretty x
-        insertSpaces (x@(span1 :> _) :| (y@(span2 :> _) : ys)) =
+        line = insertSpaces' xs
+        insertSpaces' (x :| []) = showPretty x
+        insertSpaces' (x@(span1 :> _) :| (y@(span2 :> _) : ys)) =
             showPretty x
                 <> replicate (span2.start.offset - span1.end.offset) ' '
-                <> insertSpaces (y :| ys)
-    tokensLength _ tokens = a.start.offset - b.end.offset
+                <> insertSpaces' (y :| ys)
+    tokensLength _ tokens = b.end.offset - a.start.offset
       where
         (a :> _) = NE.head tokens
         (b :> _) = NE.last tokens
@@ -101,8 +102,8 @@ instance M.TraversableStream [Spanned Token] where
         string =
             M.showTokens (Proxy @[Spanned Token]) . NE.fromList $
                 filter (\(s :> _) → s.start.line == span.start.line) s.pstateInput
-        pstateInput = drop o s.pstateInput
-        pstateOffset = s.pstateOffset + o
+        pstateInput = drop (o - 1) s.pstateInput
+        pstateOffset = s.pstateOffset + o - 1
         (span :> _) = head pstateInput
         pstateSourcePos =
             M.SourcePos

@@ -9,6 +9,7 @@ module Parse (
     FoxProgram,
 ) where
 
+import Control.Applicative ((<|>))
 import Control.Comonad.Cofree (Cofree (..))
 import Data.Bifunctor (second)
 import Data.List.NonEmpty (NonEmpty (..))
@@ -72,7 +73,6 @@ prettyFoxProgram = prettyProgram id
 -- | Parse the given token list into a syntax tree, returning index of erroneous token on failure.
 parse ∷ FilePath → [Spanned Token] → Either Text FoxProgram
 parse filePath tokens = case M.parse pProgram filePath tokens of
-    -- TODO: This error handling is very bad!
     Left e → Left . T.pack . M.errorBundlePretty $ e
     Right x → Right x
 
@@ -80,8 +80,11 @@ type Parser = M.Parsec Void [Spanned Token]
 
 pProgram ∷ Parser FoxProgram
 pProgram = do
-    definitions ← Om.fromList <$> M.many pDefinition <* M.eof
+    definitions ← Om.fromList <$> M.many pDeclaration <* M.eof
     pure Program{..}
+
+pDeclaration ∷ Parser (Text, (Span, FoxExpr))
+pDeclaration = pDefinition <|> (M.anySingle >>= failOnToken)
 
 pDefinition ∷ Parser (Text, (Span, FoxExpr))
 pDefinition = do
@@ -167,6 +170,11 @@ pToken t = M.try $ do
             M.failure
                 (Just . M.Tokens $ full :| [])
                 (S.singleton . M.Tokens $ (span :> t) :| [])
+
+failOnToken :: Spanned Token -> Parser a
+failOnToken t = M.failure
+                 (Just . M.Tokens $ t :| [])
+                 S.empty
 
 pIdent ∷ Parser (Spanned Text)
 pIdent =
