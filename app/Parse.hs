@@ -1,9 +1,7 @@
 -- | Transforming a list of tokens into a parse tree.
-module Parse (parse, prettyFoxProgram) where
+module Parse (parse, FoxExpr, FoxExprF (..), prettyFoxProgram) where
 
 import Control.Comonad.Cofree (Cofree (..))
-import Control.Monad (void)
-import Data.Foldable (toList)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Map.Ordered.Strict (OMap)
 import Data.Map.Ordered.Strict qualified as Om
@@ -16,6 +14,7 @@ import Lex qualified as Tok
 import Syntax (Span, Spanned (..), combinedSpans, sad)
 import Text.Megaparsec qualified as M
 import Text.Show.Deriving (deriveShow1)
+import Utils (prettyShow)
 
 data FoxExprF self
     = Var Text
@@ -34,20 +33,6 @@ $(deriveShow1 ''FoxExprF)
 
 type FoxExpr = Cofree FoxExprF Span
 
-prettyFoxExpr ∷ Int → FoxExpr → Text
-prettyFoxExpr indent e =
-    T.stripEnd . T.unlines $
-        (T.replicate indent "  " <> (T.pack . show $ meow e))
-            : map (prettyFoxExpr $ indent + 1) (woof e)
-
--- meow :: FoxExpr -> FoxExprF ()
-meow ∷ (Functor f) ⇒ Cofree f a → f ()
-meow (_ :< e) = void e
-
--- woof :: FoxExpr -> [FoxExpr]
-woof ∷ (Foldable f) ⇒ Cofree f a → [Cofree f a]
-woof (_ :< e) = toList e
-
 type FoxExprUnspanned = FoxExprF FoxExpr
 
 newtype FoxProgram = FoxProgram
@@ -58,7 +43,7 @@ newtype FoxProgram = FoxProgram
 
 prettyFoxProgram ∷ FoxProgram → Text
 prettyFoxProgram p =
-    T.unlines . map (\(name, (_, body)) → name <> " =\n" <> prettyFoxExpr 1 body) $
+    T.unlines . map (\(name, (_, body)) → name <> " =\n" <> prettyShow 1 body) $
         Om.assocs p.definitions
 
 -- | Parse the given token list into a syntax tree, returning index of erroneous token on failure.

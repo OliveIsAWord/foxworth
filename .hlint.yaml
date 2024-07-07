@@ -1,5 +1,9 @@
 - arguments: [-j, -XOverloadedRecordDot, -XNoStarIsType]
 
+# Infix operators and constructors not in base
+- fixity: "infixr 5 :<" # Control.Comonad.Cofree
+- fixity: "infixr 5 :>" # Syntax
+
 # Enable extra lint groups
 - group: {name: future, enabled: true}
 - group: {name: generalise-for-conciseness, enabled: true}
