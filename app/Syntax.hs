@@ -1,8 +1,9 @@
 -- | source code.
-module Syntax (Loc (..), Span (..), Spanned (..), sad) where
+module Syntax (Loc (..), Span (..), Spanned (..), sad, combinedSpans) where
 
 import Control.Comonad.Cofree (Cofree (..))
 import Control.Exception (assert)
+import Data.Text qualified as T
 
 {- Note [Source location representation]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -34,7 +35,7 @@ data Span = Span
     { start ∷ Loc
     -- ^ First character of the span
     , end ∷ Loc
-    -- ^ Last character of the span
+    -- ^ One past the last character of the span
     }
     deriving (Eq, Ord)
 
@@ -56,3 +57,18 @@ data Spanned a = Span :> a
 -- | Converts from the 'Spanned' constructor ':>' to the 'Cofree' constructor ':<'.
 sad ∷ Spanned (f (Cofree f Span)) → Cofree f Span
 sad (span :> v) = span :< v
+
+combinedSpans ∷
+    (Cofree f Span → Cofree f Span → f (Cofree f Span)) →
+    Cofree f Span →
+    Cofree f Span →
+    Cofree f Span
+combinedSpans constructor a@(sa :< _) b@(sb :< _) = sa <> sb :< constructor a b
+
+{-
+-- | Calculate the location of a character offset given a source text
+offsetToLoc source offset = go 1 (offset + 1) (fmap T.length $ T.lines source)
+  where
+    go line column (len:lens) | len <= column = go (line + 1) (column - len) lens
+    go line column _ = Loc {..}
+-}

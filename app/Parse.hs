@@ -1,8 +1,9 @@
 -- | Transforming a list of tokens into a parse tree.
-module Parse (parse) where
+module Parse (parse, prettyFoxProgram) where
 
-import Control.Applicative ((<|>))
 import Control.Comonad.Cofree (Cofree (..))
+import Control.Monad (void)
+import Data.Foldable (toList)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Map.Ordered.Strict (OMap)
 import Data.Map.Ordered.Strict qualified as Om
@@ -12,7 +13,7 @@ import Data.Text qualified as T
 import Data.Void (Void)
 import Lex (Token)
 import Lex qualified as Tok
-import Syntax (Span, Spanned (..), sad)
+import Syntax (Span, Spanned (..), combinedSpans, sad)
 import Text.Megaparsec qualified as M
 import Text.Show.Deriving (deriveShow1)
 
@@ -27,11 +28,25 @@ data FoxExprF self
     | Paren self
     | Bracket self
     | Let {var ∷ Text, sort ∷ self, value ∷ self, body ∷ self}
-    deriving (Functor, Show)
+    deriving (Functor, Foldable, Show)
 
 $(deriveShow1 ''FoxExprF)
 
 type FoxExpr = Cofree FoxExprF Span
+
+prettyFoxExpr ∷ Int → FoxExpr → Text
+prettyFoxExpr indent e =
+    T.stripEnd . T.unlines $
+        (T.replicate indent "  " <> (T.pack . show $ meow e))
+            : map (prettyFoxExpr $ indent + 1) (woof e)
+
+-- meow :: FoxExpr -> FoxExprF ()
+meow ∷ (Functor f) ⇒ Cofree f a → f ()
+meow (_ :< e) = void e
+
+-- woof :: FoxExpr -> [FoxExpr]
+woof ∷ (Foldable f) ⇒ Cofree f a → [Cofree f a]
+woof (_ :< e) = toList e
 
 type FoxExprUnspanned = FoxExprF FoxExpr
 
@@ -41,10 +56,16 @@ newtype FoxProgram = FoxProgram
     }
     deriving (Show)
 
--- | Parse the given token list into a syntax tree, returning a pretty error on failure.
+prettyFoxProgram ∷ FoxProgram → Text
+prettyFoxProgram p =
+    T.unlines . map (\(name, (_, body)) → name <> " =\n" <> prettyFoxExpr 1 body) $
+        Om.assocs p.definitions
+
+-- | Parse the given token list into a syntax tree, returning index of erroneous token on failure.
 parse ∷ FilePath → [Spanned Token] → Either Text FoxProgram
 parse filePath tokens = case M.parse pProgram filePath tokens of
-    Left e → Left . T.pack $ show e
+    -- TODO: This error handling is very bad!
+    Left e → Left . T.pack . M.errorBundlePretty $ e
     Right x → Right x
 
 type Parser = M.Parsec Void [Spanned Token]
@@ -64,17 +85,12 @@ pDefinition = do
 
 pExpr ∷ Parser FoxExpr
 pExpr = do
-    x ← pExprNoApp
-    xs ← M.many pAtom
-    pure $ foldl (\f@(s1 :< _) x@(s2 :< _) → s1 <> s2 :< App f x) x xs
-
-pExprNoApp ∷ Parser FoxExpr
-pExprNoApp =
-    M.choice
-        [ pLet
-        , pAbs
-        , pAtomOrArrow
-        ]
+    x ← M.choice [pLet, pAbs, pAtom]
+    args ← M.many pAtom
+    arrows ← M.many $ pToken Tok.Arrow *> pExpr
+    let app = foldl (combinedSpans App) x args
+    let arrow = foldl (combinedSpans Arrow) app arrows
+    pure arrow
 
 pLet ∷ Parser FoxExpr
 pLet = do
@@ -87,15 +103,6 @@ pLet = do
     _ ← pToken Tok.In
     body@(spanEnd :< _) ← pExpr
     pure $ spanStart <> spanEnd :< Let{..}
-
-pAtomOrArrow ∷ Parser FoxExpr
-pAtomOrArrow = do
-    left@(spanStart :< _) ← pAtom
-    right ←
-        pToken Tok.Arrow *> (Just <$> pExpr) <|> Nothing <$ (mempty ∷ Parser ())
-    pure $ case right of
-        Just right@(spanEnd :< _) → spanStart <> spanEnd :< Arrow left right
-        Nothing → left
 
 pAbs ∷ Parser FoxExpr
 pAbs = do
@@ -125,12 +132,12 @@ pAtom =
         -- , Bracket <$> (pToken Tok.BracketOpen *> pExpr <* pToken Tok.BracketClose)
         ]
 
-pEnclosed :: Token -> Token -> (FoxExpr -> FoxExprUnspanned) -> Parser FoxExpr
+pEnclosed ∷ Token → Token → (FoxExpr → FoxExprUnspanned) → Parser FoxExpr
 pEnclosed open close constructor = do
-  start <- pToken open
-  inner <- pExpr
-  end <- pToken close
-  pure $ start <> end :< constructor inner
+    start ← pToken open
+    inner ← pExpr
+    end ← pToken close
+    pure $ start <> end :< constructor inner
 
 {-
 -- | Add span based on the tokens consumed by a parser. This is a linear time operation and should be avoided.

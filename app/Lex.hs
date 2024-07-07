@@ -1,5 +1,5 @@
 -- | Chunking source code into tokens
-module Lex (Token (..), tokenize) where
+module Lex (Token (..), tokenize, showPretty) where
 
 {- Note [Lexing architecture]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -14,6 +14,9 @@ We use Megaparsec, a standard parser combinator library, for our lexing. Some co
 
 import Control.Applicative ((<|>))
 import Control.Monad (void, when)
+import Data.List.NonEmpty (NonEmpty (..))
+import Data.List.NonEmpty qualified as NE
+import Data.Proxy (Proxy (..))
 import Data.Set qualified as S
 import Data.Text (Text)
 import Data.Text qualified as T
@@ -57,6 +60,58 @@ data Token
     | -- | @\@ or @λ@
       LambdaLower
     deriving (Eq, Ord, Show)
+
+showPretty ∷ Spanned Token → String
+showPretty (s :> t) = case t of
+    Identifier t → T.unpack t
+    Let → "let"
+    In → "in"
+    Forall → if len == 6 then "forall" else "∀"
+    Arrow → if len == 2 then "->" else "→"
+    Equals → "="
+    Star → if len == 4 then "Star" else "*"
+    Box → if len == 3 then "Box" else "□"
+    Dot → "."
+    Colon → ":"
+    ParenOpen → "("
+    ParenClose → ")"
+    BracketOpen → "["
+    BracketClose → "]"
+    LambdaUpper → if len == 2 then "/\\" else "Λ"
+    LambdaLower → "λ" -- we can't distinguish "\" and "λ"
+  where
+    len = s.end.offset - s.start.offset
+
+instance M.VisualStream [Spanned Token] where
+    showTokens _ = insertSpaces
+      where
+        insertSpaces (x :| []) = showPretty x
+        insertSpaces (x@(span1 :> _) :| (y@(span2 :> _) : ys)) =
+            showPretty x
+                <> replicate (span2.start.offset - span1.end.offset) ' '
+                <> insertSpaces (y :| ys)
+    tokensLength _ tokens = a.start.offset - b.end.offset
+      where
+        (a :> _) = NE.head tokens
+        (b :> _) = NE.last tokens
+
+instance M.TraversableStream [Spanned Token] where
+    reachOffset o s = (Just string, M.PosState{..})
+      where
+        string =
+            M.showTokens (Proxy @[Spanned Token]) . NE.fromList $
+                filter (\(s :> _) → s.start.line == span.start.line) s.pstateInput
+        pstateInput = drop o s.pstateInput
+        pstateOffset = s.pstateOffset + o
+        (span :> _) = head pstateInput
+        pstateSourcePos =
+            M.SourcePos
+                { sourceName = s.pstateSourcePos.sourceName
+                , sourceLine = M.mkPos span.start.line
+                , sourceColumn = M.mkPos span.start.column
+                }
+        pstateTabWidth = s.pstateTabWidth
+        pstateLinePrefix = s.pstateLinePrefix
 
 -- | Parse the given source code into a list of tokens, returning a pretty error on failure.
 tokenize ∷ FilePath → Text → Either Text [Spanned Token]

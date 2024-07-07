@@ -19,7 +19,7 @@ import Options (
     InterpreterOptions (..),
     parseArgs,
  )
-import Parse (parse)
+import Parse (parse, prettyFoxProgram)
 import System.Console.ANSI qualified as Ansi
 import System.Exit (exitFailure)
 import System.FilePath (takeFileName)
@@ -64,5 +64,12 @@ runInterpreter InterpreterOptions{..} = do
             logError e
             liftIO exitFailure
         Right x → pure x
-    let foxProgram = parse fileName tokens
-    liftIO . print $ foxProgram
+    liftIO . print $ take 5 tokens
+    foxProgram ← case parse fileName tokens of
+        Left i → do
+            -- logError . ("Parse error at " <>) . T.pack . show $ tokens !! i
+            logError i
+            liftIO exitFailure
+        Right x → pure x
+
+    liftIO . T.putStrLn . prettyFoxProgram $ foxProgram

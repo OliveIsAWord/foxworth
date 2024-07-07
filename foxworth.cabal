@@ -71,5 +71,6 @@ executable foxworth
         NoStarIsType
     ghc-options:
         -Wall
+        -Wcompat
         -Wno-name-shadowing
     default-language: GHC2021

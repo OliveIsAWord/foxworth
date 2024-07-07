@@ -37,17 +37,17 @@ cabal run foxworth
 
 - [x] Command line interface
 
-- [ ] Lexing
+- [x] Lexing
 
-- [ ] Parsing
+- [x] Parsing
+
+- [ ] Desugaring
 
 - [ ] Name resolution
 
 - [ ] Type checking
 
 - [ ] Evaluation
-
-- [ ] Syntactic sugar
 
 - [ ] Modules and multiple files
 
@@ -95,8 +95,6 @@ positive, such as:
    'printf' style debugging.
 
 5. Writing documentation such as this README file!
-
-6. Considering 
 
 Though I've grown less and less enthusiastic about the current stage (a familiar
 feeling in all my projects), I remain excited about the next!
