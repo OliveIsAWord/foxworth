@@ -15,12 +15,14 @@ import Log (
     WithLog,
     doLog,
     logError,
+    logTrace,
  )
 import Options (
     InterpreterOptions (..),
     parseArgs,
  )
 import Parse (parse, prettyProgram)
+import Rename (renameProgram)
 import System.Console.ANSI qualified as Ansi
 import System.Exit (exitFailure)
 import System.FilePath (takeFileName)
@@ -71,6 +73,12 @@ runInterpreter InterpreterOptions{..} = do
             logError i
             liftIO exitFailure
         Right x → pure x
-    -- liftIO . T.putStrLn . prettyFoxProgram $ foxProgram
-    let coreProgram = fmap desugar foxProgram
-    liftIO . T.putStrLn $ prettyProgram id coreProgram
+    logTrace $ "Got parse tree {\n" <> prettyProgram foxProgram <> "}"
+    let desugared = fmap desugar foxProgram
+    logTrace $ "Got desugared program {\n" <> prettyProgram desugared <> "}"
+    renamed ← case renameProgram desugared of
+        Left e → do
+            logError . T.pack $ show e
+            liftIO exitFailure
+        Right x → pure x
+    logTrace $ "Got renamed program {\n" <> prettyProgram renamed <> "}"

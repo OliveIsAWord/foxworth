@@ -1,9 +1,9 @@
-module Desugar (ExprF (..), CoExpr, desugar) where
+module Desugar (ExprF (..), Expr, desugar, DesugarData (..), DesugaredProgram, DesugaredExpr) where
 
 import Control.Comonad.Cofree (Cofree (..), unwrap)
-import Data.Text (Text)
-import Parse (FoxExpr)
+import Parse (FoxExpr, Program)
 import Parse qualified as P
+import Syntax (Ident, emptyIdent)
 
 {- Note: [Core Expression Datatype]
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -19,22 +19,26 @@ As a benefit of Henk, the same code that prints/sortchecks/substitutes/etc. term
 -}
 
 -- | The core expression type. Every Foxworth program (without extensions) can be reduced to this.
-data ExprF ident self
+data ExprF self
     = -- | The sort of types.
       Star
     | -- | The sort of kinds.
       Box
     | -- | A variable.
-      Var ident
+      Var Ident
     | -- | A function application.
       self :$ self
     | -- | A function abstraction.
-      Lambda {var ∷ ident, sort ∷ self, body ∷ self}
+      Lambda {var ∷ Ident, sort ∷ self, body ∷ self}
     | -- | A quantification. See [Core Expression Datatype].
-      Pi {var ∷ ident, sort ∷ self, body ∷ self}
+      Pi {var ∷ Ident, sort ∷ self, body ∷ self}
     deriving (Functor, Foldable, Show)
 
-type CoExpr ident = Cofree (ExprF ident)
+type Expr = Cofree ExprF
+
+type DesugaredExpr = Expr DesugarData
+
+type DesugaredProgram = Program DesugaredExpr
 
 infixl 8 :$
 
@@ -43,13 +47,13 @@ newtype DesugarData = DesugarData
     }
     deriving (Show)
 
-desugar ∷ FoxExpr → CoExpr Text DesugarData
+desugar ∷ FoxExpr → DesugaredExpr
 desugar originalExpr@(_ :< e) = d $ case e of
     P.Var v → Var v
     P.App a b → desugar a :$ desugar b
     P.Lambda{..} → Lambda{var, sort = desugar sort, body = desugar body}
     P.Forall{..} → Pi{var, sort = desugar sort, body = desugar body}
-    P.Arrow a b → Pi{var = "", sort = desugar a, body = desugar b}
+    P.Arrow a b → Pi{var = emptyIdent, sort = desugar a, body = desugar b}
     P.Star → Star
     P.Box → Box
     P.Paren x → unwrap $ desugar x

@@ -41,9 +41,9 @@ cabal run foxworth
 
 - [x] Parsing
 
-- [ ] Desugaring
+- [x] Desugaring
 
-- [ ] Name resolution
+- [x] Name resolution
 
 - [ ] Type checking
 

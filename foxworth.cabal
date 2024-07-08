@@ -25,6 +25,7 @@ executable foxworth
         , Syntax
         , Parse
         , Desugar
+        , Rename
     -- Libraries are locked with 'cabal freeze' to the version provided by nix.
     build-depends:
         , ansi-terminal
@@ -48,9 +49,10 @@ executable foxworth
         -- , happy:happy >= 1.20.1.1 && < 1.21
     default-extensions:
         -- From the GHC2024 extensions
+        DataKinds
+        DerivingStrategies
         LambdaCase
         MonoLocalBinds
-        DerivingStrategies
 
         -- Deriving Show1
         TemplateHaskell

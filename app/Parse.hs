@@ -4,14 +4,12 @@ module Parse (
     FoxExpr,
     FoxExprF (..),
     prettyProgram,
-    prettyFoxProgram,
     Program (..),
     FoxProgram,
 ) where
 
 import Control.Applicative ((<|>))
 import Control.Comonad.Cofree (Cofree (..))
-import Data.Bifunctor (second)
 import Data.List.NonEmpty (NonEmpty (..))
 import Data.Map.Ordered.Strict (OMap)
 import Data.Map.Ordered.Strict qualified as Om
@@ -21,22 +19,22 @@ import Data.Text qualified as T
 import Data.Void (Void)
 import Lex (Token)
 import Lex qualified as Tok
-import Syntax (Span, Spanned (..), combinedSpans, sad)
+import Syntax (Ident (..), Span (..), Spanned (..), combinedSpans, sad, unspan)
 import Text.Megaparsec qualified as M
 import Text.Show.Deriving (deriveShow1)
 import Utils (prettyShow)
 
 data FoxExprF self
-    = Var Text
+    = Var Ident
     | App self self
-    | Lambda {upper ∷ Bool, var ∷ Text, sort ∷ self, body ∷ self}
-    | Forall {var ∷ Text, sort ∷ self, body ∷ self}
+    | Lambda {upper ∷ Bool, var ∷ Ident, sort ∷ self, body ∷ self}
+    | Forall {var ∷ Ident, sort ∷ self, body ∷ self}
     | Arrow self self
     | Star
     | Box
     | Paren self
     | Bracket self
-    | Let {var ∷ Text, sort ∷ self, value ∷ self, body ∷ self}
+    | Let {var ∷ Ident, sort ∷ self, value ∷ self, body ∷ self}
     deriving (Functor, Foldable, Show)
 
 $(deriveShow1 ''FoxExprF)
@@ -45,30 +43,26 @@ type FoxExpr = Cofree FoxExprF Span
 
 type FoxExprUnspanned = FoxExprF FoxExpr
 
-newtype Program ident expr = Program
-    { definitions ∷ OMap ident (Span, expr)
+newtype Program expr = Program
+    { definitions ∷ OMap Ident expr
     -- ^ A list of global named constants, each with a span of the name
     }
     deriving (Show)
 
-instance Functor (Program ident) where
-    fmap f p = Program{definitions = fmap (second f) p.definitions}
+instance Functor Program where
+    fmap f p = Program{definitions = fmap f p.definitions}
 
 prettyProgram ∷
     (Foldable f, Functor f, Show (f ())) ⇒
-    (ident → Text) →
-    Program ident (Cofree f a) →
+    Program (Cofree f a) →
     Text
-prettyProgram toText p =
+prettyProgram p =
     T.unlines
         . map
-            (\(name, (_, body)) → toText name <> " =\n" <> prettyShow 1 body)
+            (\(name, body) → T.pack (show name) <> " =\n" <> prettyShow 1 body)
         $ Om.assocs p.definitions
 
-type FoxProgram = Program Text FoxExpr
-
-prettyFoxProgram ∷ FoxProgram → Text
-prettyFoxProgram = prettyProgram id
+type FoxProgram = Program FoxExpr
 
 -- | Parse the given token list into a syntax tree, returning index of erroneous token on failure.
 parse ∷ FilePath → [Spanned Token] → Either Text FoxProgram
@@ -83,16 +77,16 @@ pProgram = do
     definitions ← Om.fromList <$> M.many pDeclaration <* M.eof
     pure Program{..}
 
-pDeclaration ∷ Parser (Text, (Span, FoxExpr))
-pDeclaration = pDefinition <|> (M.anySingle >>= failOnToken)
+pDeclaration ∷ Parser (Ident, FoxExpr)
+pDeclaration = pDefinition <|> (M.anySingle >>= failOnToken) -- explicitly consume a token and fail for better parse error diagnostics
 
-pDefinition ∷ Parser (Text, (Span, FoxExpr))
+pDefinition ∷ Parser (Ident, FoxExpr)
 pDefinition = do
     _ ← pToken Tok.Let
-    (span :> name) ← pIdent
+    name ← pIdent
     _ ← pToken Tok.Equals
     expr ← pExpr
-    pure (name, (span, expr))
+    pure (name, expr)
 
 pExpr ∷ Parser FoxExpr
 pExpr = do
@@ -106,7 +100,7 @@ pExpr = do
 pLet ∷ Parser FoxExpr
 pLet = do
     spanStart ← pToken Tok.Let
-    (_ :> var) ← pIdent
+    var ← pIdent
     _ ← pToken Tok.Colon
     sort ← pExpr
     _ ← pToken Tok.Equals
@@ -123,7 +117,7 @@ pAbs = do
             , (:> Just False) <$> pToken Tok.LambdaLower
             , (:> Nothing) <$> pToken Tok.Forall
             ]
-    _ :> var ← pIdent
+    var ← pIdent
     _ ← pToken Tok.Colon
     sort ← pExpr
     _ ← pToken Tok.Dot
@@ -135,7 +129,7 @@ pAbs = do
 pAtom ∷ Parser FoxExpr
 pAtom =
     M.choice
-        [ sad . fmap Var <$> pIdent
+        [ sad . fmap Var <$> pIdentSpanned
         , (:< Star) <$> pToken Tok.Star
         , (:< Box) <$> pToken Tok.Box
         , pEnclosed Tok.ParenOpen Tok.ParenClose Paren
@@ -171,13 +165,20 @@ pToken t = M.try $ do
                 (Just . M.Tokens $ full :| [])
                 (S.singleton . M.Tokens $ (span :> t) :| [])
 
-failOnToken :: Spanned Token -> Parser a
-failOnToken t = M.failure
-                 (Just . M.Tokens $ t :| [])
-                 S.empty
+failOnToken ∷ Spanned Token → Parser a
+failOnToken t =
+    M.failure
+        (Just . M.Tokens $ t :| [])
+        S.empty
 
-pIdent ∷ Parser (Spanned Text)
-pIdent =
+pIdent ∷ Parser Ident
+pIdent = fmap unspan pIdentSpanned
+
+pIdentSpanned ∷ Parser (Spanned Ident)
+pIdentSpanned =
     M.token
-        (\case (span :> Tok.Identifier name) → Just $ span :> name; _ → Nothing)
+        ( \case
+            (span@Span{start = loc} :> Tok.Identifier name) → Just $ span :> Ident{..}
+            _ → Nothing
+        )
         (S.singleton . M.Label $ 'v' :| "ariable")
